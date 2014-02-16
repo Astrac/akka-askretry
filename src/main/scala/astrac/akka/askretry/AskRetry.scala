@@ -42,7 +42,7 @@ class RetryingActor extends Actor
   }
 }
 
-object AskRetryPattern {
+object AskRetry {
   def retry[T](actor: ActorRef, msg: T, maxAttempts: Int, rate: FiniteDuration)(implicit context: ActorContext): Future[Any] = {
 
     implicit val to = Timeout.durationToTimeout((rate * maxAttempts) + 1.millis)
@@ -51,7 +51,7 @@ object AskRetryPattern {
   }
 
   implicit class RetryingActorRef(val ref: ActorRef) extends AnyVal {
-    def askretry[T, R](
+    def askretry[T](
       msg: T, maxAttempts: Int, rate: FiniteDuration)(implicit context: ActorContext): Future[Any] =
         retry(ref, msg, maxAttempts, rate)
   }
