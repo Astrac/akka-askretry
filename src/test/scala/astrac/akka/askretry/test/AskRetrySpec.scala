@@ -6,9 +6,8 @@ import org.scalatest.{FunSuiteLike, Matchers, BeforeAndAfterAll}
 import astrac.akka.askretry.AskRetry._
 import scala.concurrent.duration._
 import akka.pattern.pipe
-import akka.pattern.ask
 import akka.util.Timeout
-import scala.concurrent.Await
+import akka.actor.Status.Failure
 
 class AskRetryTestActor(target: ActorRef) extends Actor {
   implicit val ec = context.system.dispatcher
@@ -27,28 +26,37 @@ class AskRetrySuite(_system: ActorSystem) extends TestKit(_system) with FunSuite
 
   val target = TestProbe()
   val source = system.actorOf(Props(classOf[AskRetryTestActor], target.ref))
+  val probe = TestProbe()
 
   override def afterAll: Unit = system.shutdown()
 
   test("An ask-retry request should be served correctly if the messages are delivered at the first attempt") {
-    val f = source ? "ASK"
+    probe.send(source, "ASK")
     target.expectMsg("MSG")
     target.reply("OK")
-    Await.result(f, 100.millis) should equal("OK")
+    probe.expectMsg(100.millis, "OK")
   }
 
   test("An ask-retry request should retry the specified number of times before failing") {
-    val f = source ? "ASK"
+    probe.send(source, "ASK")
+    probe.expectNoMsg(800.millis)
     target.expectMsg("MSG")
     target.expectMsg(210.millis, "MSG")
     target.expectMsg(400.millis, "MSG")
     target.expectMsg(600.millis, "MSG")
     target.expectMsg(800.millis, "MSG")
     target.reply("OK")
-    Await.result(f, 900.millis) should equal("OK")
+    probe.expectMsg("OK")
   }
 
   test("An ask-retry request should retry the specified number of times and then fail") {
-    pending
+    probe.send(source, "ASK")
+    probe.expectNoMsg(1000.millis)
+    target.expectMsg("MSG")
+    target.expectMsg(210.millis, "MSG")
+    target.expectMsg(400.millis, "MSG")
+    target.expectMsg(600.millis, "MSG")
+    target.expectMsg(800.millis, "MSG")
+    probe.expectMsgClass(1000.millis, classOf[Failure])
   }
 }
