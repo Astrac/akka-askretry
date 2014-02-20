@@ -21,7 +21,7 @@ class AskRetrySuite(_system: ActorSystem) extends TestKit(_system) with FunSuite
 {
   def this() = this(ActorSystem("AskRetrySuite"))
 
-  implicit val t = Timeout(200.millis)
+  implicit val t = Timeout(500.millis)
   implicit val ec = system.dispatcher
 
   val target = TestProbe()
@@ -35,28 +35,32 @@ class AskRetrySuite(_system: ActorSystem) extends TestKit(_system) with FunSuite
     target.expectMsg("MSG")
     target.reply("OK")
     probe.expectMsg(100.millis, "OK")
+    probe.expectNoMsg(500.millis)
   }
 
   test("An ask-retry request should retry the specified number of times before failing") {
     probe.send(source, "ASK")
     probe.expectNoMsg(800.millis)
     target.expectMsg("MSG")
-    target.expectMsg(210.millis, "MSG")
-    target.expectMsg(400.millis, "MSG")
-    target.expectMsg(600.millis, "MSG")
-    target.expectMsg(800.millis, "MSG")
+    target.expectMsg(200.millis, "MSG")
+    target.expectMsg(200.millis, "MSG")
+    target.expectMsg(200.millis, "MSG")
+    target.expectMsg(200.millis, "MSG")
     target.reply("OK")
     probe.expectMsg("OK")
+    probe.expectNoMsg(500.millis)
   }
 
   test("An ask-retry request should retry the specified number of times and then fail") {
     probe.send(source, "ASK")
     probe.expectNoMsg(1000.millis)
     target.expectMsg("MSG")
-    target.expectMsg(210.millis, "MSG")
-    target.expectMsg(400.millis, "MSG")
-    target.expectMsg(600.millis, "MSG")
-    target.expectMsg(800.millis, "MSG")
-    probe.expectMsgClass(1000.millis, classOf[Failure])
+    target.expectMsg(200.millis, "MSG")
+    target.expectMsg(200.millis, "MSG")
+    target.expectMsg(200.millis, "MSG")
+    target.expectMsg(200.millis, "MSG")
+    probe.expectMsgClass(200.millis, classOf[Failure]).cause.getClass should equal(classOf[RetryException])
+    target.reply("OK")
+    probe.expectNoMsg(500.millis)
   }
 }
